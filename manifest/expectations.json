@@ -1,0 +1,222 @@
+{
+  "schema_version": 2,
+  "timeout_seconds": 15,
+  "fixtures": {
+    "finding-01": "1d3ebe92b7e249353a3f8753538cbf5db78f19bcc1fb61349678b27dee8ee234",
+    "finding-02": "715d3239cf0b7ef695415eb2bf85c72c577b512536da9a76e1aced927bf49c42",
+    "finding-03": "402382d06934b161b1e6f3f22ba7584e896437e7e32053dfc5718d2d0ae7e222",
+    "finding-04": "dd9c960b474563a488c7c77ced444c60eb09b8320f887d7977cfd5e9693c5da2",
+    "finding-05": "3ea5132378a8264ff651c14d72b5f70efcdda39c7df37854b03813715bc04063",
+    "finding-06": "0d20a7f88a7404fd5870981681f44e5bc6b0b27fa75bc7538fd320c56101473f"
+  },
+  "cases": {
+    "f1": {
+      "finding": 1,
+      "title": "RLE multi-frame YBR_FULL_422 heap write",
+      "site": "RLECodec::DecodeFragment, Source/MediaStorageAndFileFormat/gdcmRLECodec.cxx",
+      "entry_point": "gdcm::ImageReader::Read",
+      "sanitizer": "asan",
+      "kind": "harness",
+      "executable": "finding01",
+      "args": [
+        "{fixture}"
+      ],
+      "vulnerable_regex": "AddressSanitizer: heap-buffer-overflow[\\s\\S]*RLECodec::DecodeFragment",
+      "control": "finding-01/control.dcm",
+      "control_allowed_returncodes": [
+        0
+      ],
+      "fixed_allowed_returncodes": [
+        0,
+        1
+      ]
+    },
+    "f2": {
+      "finding": 2,
+      "title": "JPEG2000 encode heap write (gdcmconv CLI)",
+      "site": "opj_write_from_memory, Source/MediaStorageAndFileFormat/gdcmJPEG2000Codec.cxx",
+      "entry_point": "gdcmconv --j2k",
+      "sanitizer": "asan",
+      "kind": "gdcmconv",
+      "args": [
+        "--j2k",
+        "{fixture}",
+        "{output}"
+      ],
+      "vulnerable_regex": "AddressSanitizer: heap-buffer-overflow[\\s\\S]*opj_write_from_memory",
+      "control": "finding-02/control.dcm",
+      "control_allowed_returncodes": [
+        0
+      ],
+      "fixed_allowed_returncodes": [
+        0
+      ]
+    },
+    "f2-lib": {
+      "finding": 2,
+      "title": "JPEG2000 encode heap write (library transcode API)",
+      "site": "opj_write_from_memory, Source/MediaStorageAndFileFormat/gdcmJPEG2000Codec.cxx",
+      "entry_point": "gdcm::ImageChangeTransferSyntax::Change",
+      "sanitizer": "asan",
+      "kind": "harness",
+      "executable": "finding02",
+      "args": [
+        "{fixture}"
+      ],
+      "vulnerable_regex": "AddressSanitizer: heap-buffer-overflow[\\s\\S]*opj_write_from_memory",
+      "control": "finding-02/control.dcm",
+      "control_allowed_returncodes": [
+        0
+      ],
+      "fixed_allowed_returncodes": [
+        0
+      ]
+    },
+    "f3": {
+      "finding": 3,
+      "title": "Segmented palette OOB heap read",
+      "site": "DiscreteSegment::Expand, Source/MediaStorageAndFileFormat/gdcmSegmentedPaletteColorLookupTable.cxx",
+      "entry_point": "gdcm::ImageReader::Read",
+      "sanitizer": "asan",
+      "kind": "harness",
+      "executable": "finding03",
+      "args": [
+        "{fixture}"
+      ],
+      "vulnerable_regex": "AddressSanitizer: heap-buffer-overflow[\\s\\S]*(SegmentedPaletteColorLookupTable|DiscreteSegment)",
+      "control": "finding-03/control.dcm",
+      "control_allowed_returncodes": [
+        0
+      ],
+      "fixed_allowed_returncodes": [
+        0,
+        2
+      ]
+    },
+    "f3-propagation": {
+      "finding": 3,
+      "title": "Segmented palette OOB bytes reach decoded pixels (file-driven, redacted)",
+      "site": "LookupTable::SetLUT -> ImageApplyLookupTable::Apply",
+      "entry_point": "gdcm::ImageReader::Read + gdcm::ImageApplyLookupTable",
+      "sanitizer": "ubsan",
+      "kind": "harness",
+      "executable": "finding03_propagation",
+      "args": [
+        "{fixture}"
+      ],
+      "vulnerable_regex": "OOB_PROPAGATION_CONFIRMED",
+      "control": "finding-03/control.dcm",
+      "control_allowed_returncodes": [
+        1
+      ],
+      "fixed_allowed_returncodes": [
+        1,
+        2,
+        3
+      ]
+    },
+    "f3-sentinel": {
+      "finding": 3,
+      "title": "Segmented palette OOB bounded sentinel (no file, no heap disclosure)",
+      "site": "DiscreteSegment ctor, Source/MediaStorageAndFileFormat/gdcmSegmentedPaletteColorLookupTable.cxx",
+      "entry_point": "gdcm::SegmentedPaletteColorLookupTable::Decode",
+      "sanitizer": "ubsan",
+      "kind": "harness",
+      "executable": "finding03_sentinel",
+      "args": [],
+      "vulnerable_regex": "SENTINEL_PROPAGATION_CONFIRMED",
+      "control": null,
+      "fixed_allowed_returncodes": [
+        1
+      ]
+    },
+    "f4": {
+      "finding": 4,
+      "title": "JPEG2000 codestream precision overrides BitsAllocated allocation",
+      "site": "JPEG2000Codec::DecodeByStreamsCommon, Source/MediaStorageAndFileFormat/gdcmJPEG2000Codec.cxx",
+      "entry_point": "gdcm::ImageRegionReader::ReadIntoBuffer",
+      "sanitizer": "asan",
+      "kind": "harness",
+      "executable": "finding04",
+      "args": [
+        "{fixture}"
+      ],
+      "vulnerable_regex": "AddressSanitizer: heap-buffer-overflow[\\s\\S]*JPEG2000Codec::DecodeByStreamsCommon",
+      "control": "finding-04/control.dcm",
+      "control_allowed_returncodes": [
+        0
+      ],
+      "fixed_allowed_returncodes": [
+        0,
+        1
+      ]
+    },
+    "f5": {
+      "finding": 5,
+      "title": "Unbounded nested-sequence recursion exhausts the stack",
+      "site": "Item::Read / DataSet::ReadNested",
+      "entry_point": "gdcm::Reader::Read",
+      "sanitizer": "asan",
+      "kind": "harness",
+      "executable": "finding05",
+      "args": [
+        "{fixture}"
+      ],
+      "vulnerable_regex": "AddressSanitizer: stack-overflow[\\s\\S]*(Item::Read|DataSet::ReadNested)",
+      "control": "finding-05/control.dcm",
+      "control_allowed_returncodes": [
+        0
+      ],
+      "fixed_allowed_returncodes": [
+        0,
+        1
+      ],
+      "stack_limit_bytes": 2097152
+    },
+    "f6": {
+      "finding": 6,
+      "title": "RLE NumSegments=0 division by zero",
+      "site": "RLECodec::DecodeByStreams, Source/MediaStorageAndFileFormat/gdcmRLECodec.cxx",
+      "entry_point": "gdcm::ImageReader::Read",
+      "sanitizer": "ubsan",
+      "kind": "harness",
+      "executable": "finding06",
+      "args": [
+        "{fixture}"
+      ],
+      "vulnerable_regex": "runtime error: division by zero[\\s\\S]*RLECodec",
+      "control": "finding-06/control.dcm",
+      "control_allowed_returncodes": [
+        0
+      ],
+      "fixed_allowed_returncodes": [
+        0,
+        1
+      ]
+    },
+    "f1-exploit": {
+      "finding": 1,
+      "title": "RLE overflow gives a controlled adjacent-object write and a controlled indirect branch",
+      "site": "RLECodec::DecodeFragment, Source/MediaStorageAndFileFormat/gdcmRLECodec.cxx",
+      "entry_point": "gdcm::ImageReader::Read",
+      "sanitizer": "none",
+      "kind": "exploit",
+      "executable": "finding01_exploit",
+      "args": [],
+      "vulnerable_regex": "INDIRECT_BRANCH_TARGET_CONTROLLED",
+      "control": null,
+      "platforms": [
+        "Linux-x86_64"
+      ],
+      "notes": "Two-phase and Linux-x86_64 only: the harness prints a branch target inside itself (--print-target), the generator plants it at overflow offset 6144, the harness verifies the victim's function pointer holds that value and calls it. No shellcode, no gadget chain, no ASLR defeat; -no-pie only keeps the address stable across the two runs. Frame 1's decode runs last and is what persists past the allocation, so the payload goes in fragment 1. About half of the 8-byte windows in the 12288-byte overflow accept an arbitrary value; the rest are coupled by the DoYBRFull422 byte duplication, which is why offset 8 is unusable and 6144 is used.",
+      "manual": true,
+      "reproduce": [
+        "./scripts/build-target.sh vulnerable none release",
+        "TARGET=$(_build/vulnerable-none-release-harness/finding01_exploit --print-target)",
+        "HEX=$(python3 -c \"print(int('$TARGET',16).to_bytes(8,'little').hex())\")",
+        "python3 generators/finding-01-exploit.py --out /tmp/f1_exploit.dcm --plant 6144:$HEX",
+        "LD_LIBRARY_PATH=_build/vulnerable-none-release-gdcm/bin _build/vulnerable-none-release-harness/finding01_exploit /tmp/f1_exploit.dcm ${TARGET#0x}"
+      ]
+    }
+  }
+}

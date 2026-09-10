@@ -1,0 +1,70 @@
+name: sanitizer-reproduction
+
+# This workflow executes inputs that intentionally crash the test process. Run it only
+# in an isolated repository and after reading SAFETY.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Pinned source target
+        required: true
+        default: vulnerable
+        type: choice
+        options:
+          - vulnerable
+          - master
+      profile:
+        description: Build profile (release elides GDCM's debug assertions)
+        required: true
+        default: debug
+        type: choice
+        options:
+          - debug
+          - release
+      acknowledge:
+        description: I read SAFETY.md and authorize local CI process crashes
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  reproduce:
+    if: ${{ inputs.acknowledge }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        sanitizer: [asan, ubsan]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build prerequisites
+        run: sudo apt-get update && sudo apt-get install -y clang cmake ninja-build python3 zlib1g-dev
+      - name: Build
+        run: JOBS=$(nproc) ./scripts/build-target.sh "${{ inputs.target }}" "${{ matrix.sanitizer }}" "${{ inputs.profile }}"
+      - name: Run the cases for this sanitizer
+        env:
+          GDCM_REPRO_ACK: I_UNDERSTAND_THIS_CRASHES_A_LOCAL_PROCESS
+        run: |
+          python3 - "${{ matrix.sanitizer }}" "${{ inputs.target }}" "${{ inputs.profile }}" <<'PY'
+          import json, subprocess, sys, pathlib
+          sanitizer, target, profile = sys.argv[1:4]
+          cases = json.loads(pathlib.Path("manifest/expectations.json").read_text())["cases"]
+          selected = [c for c, v in cases.items() if v["sanitizer"] == sanitizer]
+          args = ["python3", "scripts/run-matrix.py", target, "--profile", profile]
+          for case in selected:
+              args += ["--case", case]
+          sys.exit(subprocess.run(args).returncode)
+          PY
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gdcm-${{ inputs.target }}-${{ inputs.profile }}-${{ matrix.sanitizer }}-evidence
+          path: _runs/
+          if-no-files-found: warn
+          retention-days: 3
